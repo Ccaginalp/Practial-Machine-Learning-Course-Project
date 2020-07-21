@@ -72,9 +72,13 @@ This didn't predict very accurately, so let's try a random forest instead.
 control <- trainControl(method = "cv", number = 3, verboseIter = FALSE)
 my_model2 <- train(classe ~ ., data = train_clean, method = "rf", trControl = control)
 preds <- predict(my_model2, newdata = valid_clean)
-acc <- (sum(valid_clean$classe == preds) / nrow(valid_clean)) %>% round(2)
+acc <- (sum(valid_clean$classe == preds) / nrow(valid_clean)) %>% round(3)
 print(str_glue("Validation accuracy is : {acc}"))
+# Furthermore, looking at the confusion matrix:
+confusionMatrix(preds, valid_clean$classe)
 ```
+
+We expect an out-of-sample accuracy somewhere between 98.9% and 99.4%. Indeed, our empirical value of 99.2% falls within the 95% C.I. bound.
 
 This is quite high and we find it satisfactory. For context, here is the code to produce predictions for the prediction problem as well:
 
