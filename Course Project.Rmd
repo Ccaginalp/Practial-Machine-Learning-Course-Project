@@ -1,0 +1,85 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+Created July 21, 2020
+
+We analyze a dataset for classification of the manner in which an exercise was performed. First, we set up required libraries for our analysis and load in the data.
+
+```{r}
+library(tidyverse)
+library(caret)
+library(rattle)
+library(rpart)
+setwd("//chws3092/PPM Admin File/Pricing Product General/Users/Carey C/Coursera/Practical Machine Learning")
+train <- read.csv("pml-training.csv", header = T, na.strings = c("", NA))
+test <- read.csv("pml-testing.csv", header = T, na.strings = c("", NA))
+```
+First we examine the amount of null values in the data for various columns.
+
+```{r}
+
+num_nas <- sapply(train, function(x) sum(is.na(x))) %>% as.data.frame()
+colnames(num_nas) <- "count"
+bad_vars1 <- rownames(num_nas)[num_nas > 1000]
+print(bad_vars1)
+```
+
+Clearly there are many variables which are almost entirely excluded from the dataset, so we will not use them for our modeling. There are several other variables which are not really relevant, such as the id number and timestamp information. We adjust our datasets as follows:
+
+```{r}
+irr_vars <- c(1:7)
+data_clean <- train %>% select(-bad_vars1, -irr_vars)
+test_clean <- test %>% select(-bad_vars1, - irr_vars)
+```
+
+We want to have data for training and validation, so we split it with a 70/30 split:
+
+```{r}
+train_idx <- createDataPartition(data_clean$classe, p = 0.7, list = FALSE)
+train_clean <- data_clean[train_idx,]
+valid_clean <- data_clean[-train_idx, ]
+```
+
+
+Now let's train a model for classification:
+
+```{r}
+my_model <- train(classe ~ ., data = train_clean, method = "rpart", tuneLength = 10,
+                  control = rpart.control(cp = 0))
+```
+
+And see what it looks like:
+
+```{r}
+fancyRpartPlot(my_model$finalModel)
+```
+
+Now we can validate our model:
+
+```{r}
+preds <- predict(my_model, newdata = valid_clean)
+acc <- (sum(valid_clean$classe == preds) / nrow(valid_clean)) %>% round(2)
+print(str_glue("Validation accuracy is : {acc}"))
+```
+
+This didn't predict very accurately, so let's try a random forest instead.
+
+```{r}
+control <- trainControl(method = "cv", number = 3, verboseIter = FALSE)
+my_model2 <- train(classe ~ ., data = train_clean, method = "rf", trControl = control)
+preds <- predict(my_model2, newdata = valid_clean)
+acc <- (sum(valid_clean$classe == preds) / nrow(valid_clean)) %>% round(2)
+print(str_glue("Validation accuracy is : {acc}"))
+```
+
+This is quite high and we find it satisfactory. For context, here is the code to produce predictions for the prediction problem as well:
+
+```{r}
+quiz_preds <- predict(my_model2, newdata = test_clean)
+print(quiz_preds)
+```
+
